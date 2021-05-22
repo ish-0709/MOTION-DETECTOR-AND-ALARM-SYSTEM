@@ -1,0 +1,221 @@
+# Detection of an object and human and also dealing with the motion of both of them.
+
+# OpenCV is a cross-platform library using which we can develop real-time computer vision applications.
+# It mainly focuses on image processing,
+# video capture and analysis including features like face detection and object detection.
+import cv2
+
+# Pandas is a high-level data manipulation tool.
+# It is built on the Numpy package and its key data structure is called the DataFrame.
+# DataFrames allow you to store and manipulate tabular data in rows of observations and columns of variables.
+import pandas
+
+# Datetime module supplies classes to work with date and time.
+# These classes provide a number of functions to deal with dates, times and time intervals.
+from datetime import datetime
+
+# pyttsx3 is a text-to-speech conversion library in Python.
+# Unlike alternative libraries, it works offline, and is compatible with both Python 2 and 3.
+import pyttsx3
+
+# It is a machine learning based approach where a cascade
+# function is trained from a lot of positive and negative images.
+# It is then used to detect objects in other images.
+face_cascade = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
+
+# starting empty background taken
+baseimg = None
+
+# a list for storing any moving object
+status_list = [None, None]
+
+# time of movement
+times = []
+
+# Initializing DataFrame, one column is start
+# time and other column is end time
+df = pandas.DataFrame(columns=["Start", "End"])
+
+# capture the video which is playing many images at a faster pace
+video = cv2.VideoCapture(0)
+
+# setting parameters for voice
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[0].id)
+engine.setProperty('volume', 101110)
+engine.setProperty('rate', 150)
+
+while True:
+    isHuman = 0
+    check, frame = video.read()
+    status = 0
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray_frame = cv2.GaussianBlur(gray_frame, (21, 21), 0)
+    faces = face_cascade.detectMultiScale(gray_frame, 1.1, 4)
+
+    # face recognition
+    for (x, y, w, h) in faces:
+        cv2.rectangle(gray_frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        isHuman = 1
+
+    if baseimg is None:
+        baseimg = gray_frame
+        continue
+
+    frame_diff = cv2.absdiff(baseimg, gray_frame)
+    threshframe = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)[1]
+    threshframe = cv2.dilate(threshframe, None, iterations=2)
+
+    (cnts, _) = cv2.findContours(threshframe.copy(),
+                                 cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in cnts:
+        if cv2.contourArea(contour) < 10000:
+            continue
+        status = 1
+
+        (x, y, w, h) = cv2.boundingRect(contour)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+
+    status_list.append(status)
+
+    status_list = status_list[-2:]
+
+    if status_list[-1] == 1 and status_list[-2] == 0:
+        times.append(datetime.now())
+
+    if status_list[-1] == 0 and status_list[-2] == 1:
+        times.append(datetime.now())
+
+    cv2.imshow("Grey Frame", gray_frame)
+    cv2.imshow("Frame Difference", frame_diff)
+    cv2.imshow("Threshold Frame", threshframe)
+    cv2.imshow("Color Frame", frame)
+
+    key = cv2.waitKey(1)
+
+    if key == ord('q'):
+        if status == 1:
+            times.append(datetime.now())
+        break
+    if (status == 1 and isHuman == 1):
+        engine.say("HUMAN DETECTED. HELLO BEAUTIFUL.")
+        print("HUMAN DETECTED .")
+        engine.runAndWait()
+        isHuman = 0
+    if(status == 1 and isHuman == 0):
+        engine.say("OBJECT DETECTED.")
+        print('OBJECT DETECTED')
+        engine.runAndWait()
+        isHuman = 0
+
+print(status_list)
+print(times)
+
+for i in range(0, len(times), 2):
+    df = df.append({"Start": times[i], "End": times[i + 1]}, ignore_index=True)
+
+df.to_csv("C://Users//lenovo//PycharmProjects//MOTION DETECTOR COLLEGE//Times.csv")
+
+engine.stop()
+video.release()
+cv2.destroyAllWindows()
+
+
+import cv2
+import pandas
+from datetime import datetime
+import pyttsx3
+
+face_cascade = cv2.CascadeClassifier("C://Users//lenovo//PycharmProjects//MOTION DETECTOR COLLEGE//haarcascade_frontalface_default.xml")
+
+baseimg = None
+isHuman=0
+status_list = [None, None]
+times = []
+df = pandas.DataFrame(columns=["Start", "End"])
+video = cv2.VideoCapture(0)
+
+# setting parameters for voice
+engine = pyttsx3.init()
+voices = engine.getProperty('voices')
+engine.setProperty('voice', voices[0].id)
+engine.setProperty('volume', 101110)
+engine.setProperty('rate', 150)
+
+while True:
+    # Read the frame
+    _, img = video.read()
+    # Convert to grayscale
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # Detect the faces
+    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+    # Draw the rectangle around each face
+    for (x, y, w, h) in faces:
+        cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+        isHuman = 1
+    check, frame = video.read()
+    status = 0
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray_frame = cv2.GaussianBlur(gray_frame, (21, 21), 0)
+
+    if baseimg is None:
+        baseimg = gray_frame
+        continue
+
+    frame_diff = cv2.absdiff(baseimg, gray_frame)
+    threshframe = cv2.threshold(frame_diff, 30, 255, cv2.THRESH_BINARY)[1]
+    threshframe = cv2.dilate(threshframe, None, iterations=2)
+
+    (cnts, _) = cv2.findContours(threshframe.copy(),
+                                 cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in cnts:
+        if cv2.contourArea(contour) < 10000:
+            continue
+        status = 1
+
+        (x, y, w, h) = cv2.boundingRect(contour)
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+    status_list.append(status)
+
+    status_list = status_list[-2:]
+
+    if status_list[-1] == 1 and status_list[-2] == 0:
+        times.append(datetime.now())
+
+    if status_list[-1] == 0 and status_list[-2] == 1:
+        times.append(datetime.now())
+
+    cv2.imshow("Grey Frame", gray_frame)
+    cv2.imshow("Frame Difference", frame_diff)
+    cv2.imshow("Threshold Frame", threshframe)
+    cv2.imshow("Color Frame", frame)
+
+    key = cv2.waitKey(1)
+
+    if key == ord('q'):
+        if status == 1:
+            times.append(datetime.now())
+        break
+    if (status == 1 and isHuman== 1):
+        engine.say("HUMAN DETECTED. NOW who are you ?")
+        print("HUMAN DETECTED .")
+        engine.runAndWait()
+    if(status == 1 and isHuman==0):
+        engine.say("OBJECT DETECTED.")
+        print('OBJECT DETECTED')
+        engine.runAndWait()
+
+print(status_list)
+print(times)
+
+for i in range(0, len(times), 2):
+    df = df.append({"Start": times[i], "End": times[i + 1]}, ignore_index=True)
+
+df.to_csv("C://Users//lenovo//PycharmProjects//MOTION DETECTOR COLLEGE//Times.csv")
+
+engine.stop()
+video.release()
+cv2.destroyAllWindows
